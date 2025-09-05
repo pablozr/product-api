@@ -1,0 +1,56 @@
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import JSONResponse
+from functions.database.database_manager import db_instance
+from entities.product.product import Product, ProductCreate
+
+router = APIRouter()
+
+@router.post("/products")
+async def create_product_endpoint(product: ProductCreate):
+    try:
+        response_create_product = await db_instance.create_product(product)
+
+        if not response_create_product["status"]:
+            return JSONResponse(status_code=404, content={"message": response_create_product["message"]})
+
+        return JSONResponse(status_code=201, content={"message": response_create_product["message"], "data": response_create_product["data"]})
+
+    except Exception as e:
+        print(e)
+        return JSONResponse(status_code=500, content={"message": "Erro interno com o servidor."})
+
+
+@router.get("/products/{product_id}", response_model=Product)
+async def get_product_endpoint(product_id: int):
+    product = await db_instance.get_product(product_id)
+    if product is None:
+        return {"error": "Product not found"}
+    return product
+
+
+@router.get("/products")
+async def get_products_endpoint(category: str = None, sortby: str = None, skip: int = 0, limit: int = 10):
+    response_get_products = await db_instance.get_products(category=category, sortby= sortby, skip=skip, limit=limit)
+
+    if not response_get_products["status"]:
+        raise HTTPException(status_code=404, detail=response_get_products["message"])
+    return JSONResponse(status_code=200, content={"message": response_get_products["message"],"data": response_get_products["data"]})
+
+
+@router.put("/products/{product_id}")
+async def update_product_endpoint(product_id: int, product: ProductCreate):
+    response_updated_product = await db_instance.update_product(product_id, product)
+
+    if not response_updated_product["status"]:
+        raise HTTPException(status_code=404, detail=response_updated_product["message"])
+
+    return JSONResponse(status_code=200, content={"message": response_updated_product["message"],
+                                                  "data": response_updated_product["data"]})
+
+
+@router.delete("/products/{product_id}")
+async def delete_product_endpoint(product_id: int):
+    success = await db_instance.delete_product(product_id)
+    if not success["status"]:
+        raise HTTPException(status_code=404, detail=success["message"])
+    return JSONResponse(status_code=200, content={"message": success["message"],})

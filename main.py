@@ -1,0 +1,23 @@
+from contextlib import asynccontextmanager
+
+from functions.database.database_manager import db_instance
+from routes.products import router as products_router
+from fastapi import FastAPI
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+   await db_instance.connect()
+   app.state.db = db_instance
+
+   yield
+
+   await db_instance.close()
+
+app = FastAPI(lifespan=lifespan)
+
+app.include_router(products_router.router, prefix="/api/v1")
+
+
+if __name__ == '__main__':
+    import uvicorn
+    uvicorn.run(app, host='0.0.0.0', port=8000)
