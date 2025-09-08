@@ -5,6 +5,7 @@ from typing import Optional, List, Dict
 from asyncpg import UniqueViolationError
 from dotenv import load_dotenv
 
+from logger import logger
 from entities.product.product import Product
 from entities.product.product import ProductCreate
 from functions.filters.filter import build_products_query
@@ -44,20 +45,25 @@ class DatabaseManager:
             except UniqueViolationError as ve:
                 return {"status": False, "message": "Nome repetido", "data": dict()}
             except Exception as e:
-                print(e)
+                logger.logger.error(e)
                 return {"status": False, "message": "Erro interno do servidor", "data": dict()}
 
-    async def get_product(self, product_id: int) -> Optional[Product]:
+    async def get_product(self, product_id: int) -> dict:
         async with self._pool.acquire() as connection:
             query = """
                     SELECT id, name, description, price, in_stock
                     FROM products
                     WHERE id = $1 \
                     """
-            record = await connection.fetchrow(query, product_id)
-            if record:
-                return Product(**record)
-            return None
+            try:
+                record = await connection.fetchrow(query, product_id)
+                if record:
+                    return {"status": True, "message": "Produto criado com sucesso", "data":{**record}}
+                else:
+                    return {"status": False, "message": "Falha ao criar produto", "data": dict()}
+            except Exception as e:
+                logger.logger.error(e)
+                return {"status": False, "message": "Erro interno do servidor", "data": dict()}
 
     async def get_products(self, skip: int = 0, limit: int = 10, category: str = None, sortby: str = None) -> dict:
         async with self._pool.acquire() as connection:
@@ -70,7 +76,7 @@ class DatabaseManager:
                 else:
                     return {"status": True, "message": "Nenhum produto registrado", "data": list()}
             except Exception as e:
-                print(e)
+                logger.logger.error(e)
                 return{"status": False, "message": "Erro interno do servidor", "data": list()}
 
     async def update_product(self, product_id: int, product: ProductCreate) -> dict:
@@ -91,7 +97,7 @@ class DatabaseManager:
                     return {"status": False, "message": "Nenhum produto encontrado com o id informado.", "data": dict()}
             except Exception as e:
                 # logger.excpetion(e)
-                print(e)
+                logger.logger.error(e)
                 return {"status": False, "message": "Erro interno com a tabela de produtos.", "data": dict()}
 
     async def delete_product(self, product_id: int) -> dict:
@@ -109,7 +115,7 @@ class DatabaseManager:
                 else:
                     return {"status": False, "message": "Nenhum produto encontrado com o id informado.", "data": dict()}
             except Exception as e:
-                print(e)
+                logger.logger.error(e)
                 return {"status": False, "message": "Erro interno", "data": dict()}
 
 db_instance = DatabaseManager()
