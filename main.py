@@ -1,7 +1,7 @@
 from contextlib import asynccontextmanager
 
 from functions.database.database_manager import db_instance
-from routes.products import router as products_router
+from routes.products.router import router as products_router
 from fastapi import FastAPI
 
 @asynccontextmanager
@@ -11,11 +11,11 @@ async def lifespan(app: FastAPI):
 
    yield
 
-   await db_instance.close()
+   await db_instance.disconnect()
 
 app = FastAPI(lifespan=lifespan)
 
-app.include_router(products_router.router, prefix="/api/v1")
+app.include_router(products_router, prefix="/api/v1")
 
 
 if __name__ == '__main__':
