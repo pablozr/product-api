@@ -1,15 +1,9 @@
 import asyncpg
 import os
-from typing import Optional, List, Dict
-
 from asyncpg import UniqueViolationError
 from dotenv import load_dotenv
-
 from logger.logger import logger
-from entities.product.product import Product
 from entities.product.product import ProductCreate
-from functions.filters.filter import build_products_query
-
 
 load_dotenv()
 
@@ -28,14 +22,13 @@ class DatabaseManager:
             self._pool = None
 
     async def create_product(self, product: ProductCreate) -> dict:
+
+        query = """
+                INSERT INTO products (name, description, price, in_stock)
+                VALUES ($1, $2, $3, $4) RETURNING id, name, description, price, in_stock \
+                """
+
         async with self._pool.acquire() as connection:
-
-
-            query = """
-                    INSERT INTO products (name, description, price, in_stock)
-                    VALUES ($1, $2, $3, $4)
-                    RETURNING id, name, description, price, in_stock
-                    """
             try:
                 record = await connection.fetchrow(query, product.name, product.description, product.price,
                                                    product.in_stock)
@@ -50,12 +43,14 @@ class DatabaseManager:
                 return {"status": False, "message": "Erro interno do servidor", "data": dict()}
 
     async def get_product(self, product_id: int) -> dict:
+
+        query = """
+                SELECT id, name, description, price, in_stock
+                FROM products
+                WHERE id = $1 \
+                """
+
         async with self._pool.acquire() as connection:
-            query = """
-                    SELECT id, name, description, price, in_stock
-                    FROM products
-                    WHERE id = $1
-                    """
             try:
                 record = await connection.fetchrow(query, product_id)
                 if record:
@@ -66,9 +61,27 @@ class DatabaseManager:
                 logger.exception(e)
                 return {"status": False, "message": "Erro interno do servidor", "data": dict()}
 
-    async def get_products(self, skip: int = 0, limit: int = 10, category: str = None, sortby: str = None) -> dict:
+    async def get_products(self, filters:dict, skip: int = 0, limit: int = 10) -> dict:
+        query = "SELECT id, name, description, price, in_stock FROM products"
+        params = []
+        index = 1
+
+        for key, value in filters.items():
+            if key == "category":
+                query += f" WHERE category LIKE ${index}"
+                params.append(f"%{value}%")
+                index += 1
+            elif key == "sortby":
+                allowed_sort_fields = {"name", "price", "in_stock"}
+                if value in allowed_sort_fields:
+                    query += f" ORDER BY {value}"
+                else:
+                    query += " ORDER BY id"
+
+        query += f" OFFSET ${index} LIMIT ${index + 1}"
+        params.extend([skip, limit])
+
         async with self._pool.acquire() as connection:
-            query, params = build_products_query(category, skip, limit, sortby)
             try:
                 records = await connection.fetch(query, *params)
 
@@ -81,14 +94,15 @@ class DatabaseManager:
                 return{"status": False, "message": "Erro interno do servidor", "data": list()}
 
     async def update_product(self, product_id: int, product: ProductCreate) -> dict:
-        async with self._pool.acquire() as connection:
-            query = """UPDATE products
-                    SET name        = $1, 
-                        description = $2, 
-                        price       = $3, 
-                        in_stock    = $4
-                    WHERE id = $5 RETURNING id, name, description, price, in_stock"""
 
+        query = """UPDATE products
+                   SET name        = $1,
+                       description = $2,
+                       price       = $3,
+                       in_stock    = $4
+                   WHERE id = $5 RETURNING id, name, description, price, in_stock"""
+
+        async with self._pool.acquire() as connection:
             try:
                 record = await connection.fetchrow(query, product.name, product.description, product.price,
                                                    product.in_stock, product_id)
@@ -101,12 +115,14 @@ class DatabaseManager:
                 return {"status": False, "message": "Erro interno com a tabela de produtos.", "data": dict()}
 
     async def delete_product(self, product_id: int) -> dict:
+
+        query = """
+                DELETE
+                FROM products
+                WHERE id = $1 \
+                """
+
         async with self._pool.acquire() as connection:
-            query = """
-                    DELETE
-                    FROM products
-                    WHERE id = $1
-                    """
             try:
                 result = await connection.execute(query, product_id)
 
@@ -117,5 +133,6 @@ class DatabaseManager:
             except Exception as e:
                 logger.exception(e)
                 return {"status": False, "message": "Erro interno", "data": dict()}
+
 
 db_instance = DatabaseManager()
