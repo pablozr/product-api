@@ -7,29 +7,25 @@ from entities.product.product import ProductCreate
 
 load_dotenv()
 
+
 class DatabaseManager:
     def __init__(self):
         self._pool: asyncpg.Pool = None
         self._database_url = os.getenv("DATABASE_URL")
 
-
     async def connect(self):
         if not self._pool:
             self._pool = await asyncpg.create_pool(self._database_url)
-
 
     async def disconnect(self):
         if self._pool:
             await self._pool.close()
             self._pool = None
 
-
     async def create_product(self, product: ProductCreate) -> dict:
 
-        query = """
-                INSERT INTO products (name, description, price, in_stock)
-                VALUES ($1, $2, $3, $4) RETURNING id, name, description, price, in_stock \
-                """
+        query = """INSERT INTO products (name, description, price, in_stock)
+                VALUES ($1, $2, $3, $4) RETURNING id, name, description, price, in_stock"""
 
         async with self._pool.acquire() as connection:
             try:
@@ -45,14 +41,11 @@ class DatabaseManager:
                 logger.exception(e)
                 return {"status": False, "message": "Erro interno do servidor", "data": dict()}
 
-
     async def get_product(self, product_id: int) -> dict:
 
-        query = """
-                SELECT id, name, description, price, in_stock
+        query = """SELECT id, name, description, price, in_stock
                 FROM products
-                WHERE id = $1 \
-                """
+                WHERE id = $1"""
 
         async with self._pool.acquire() as connection:
             try:
@@ -65,14 +58,11 @@ class DatabaseManager:
                 logger.exception(e)
                 return {"status": False, "message": "Erro interno do servidor", "data": dict()}
 
-
     async def get_products(self, skip: int = 0, limit: int = 10) -> dict:
-        query = """
-                SELECT id, name, description, price, in_stock
+        query = """SELECT id, name, description, price, in_stock
                 FROM products
                 ORDER BY id
-                OFFSET $1 LIMIT $2 \
-                """
+                OFFSET $1 LIMIT $2"""
 
         async with self._pool.acquire() as connection:
             try:
@@ -86,15 +76,12 @@ class DatabaseManager:
                 logger.exception(e)
                 return {"status": False, "message": "Erro interno do servidor", "data": dict()}
 
-
     async def get_products_by_category(self, category:str, skip: int = 0, limit: int = 10) -> dict:
-        query= """
-                SELECT id, name, description, price, in_stock
+        query= """SELECT id, name, description, price, in_stock
                 FROM products
                 WHERE category = $1
                 ORDER BY id
-                OFFSET $2 LIMIT $3 \
-                """
+                OFFSET $2 LIMIT $3 """
 
         async with self._pool.acquire() as connection:
             try:
@@ -107,7 +94,6 @@ class DatabaseManager:
             except Exception as e:
                 logger.exception(e)
                 return {"status": False, "message": "Erro interno do servidor", "data": dict()}
-
 
     async def update_product(self, product_id: int, product: ProductCreate) -> dict:
 
@@ -130,14 +116,11 @@ class DatabaseManager:
                 logger.exception(e)
                 return {"status": False, "message": "Erro interno com a tabela de produtos.", "data": dict()}
 
-
     async def delete_product(self, product_id: int) -> dict:
 
-        query = """
-                DELETE
+        query = """DELETE
                 FROM products
-                WHERE id = $1 \
-                """
+                WHERE id = $1"""
 
         async with self._pool.acquire() as connection:
             try:
