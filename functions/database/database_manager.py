@@ -61,37 +61,46 @@ class DatabaseManager:
                 logger.exception(e)
                 return {"status": False, "message": "Erro interno do servidor", "data": dict()}
 
-    async def get_products(self, filters:dict, skip: int = 0, limit: int = 10) -> dict:
-        query = "SELECT id, name, description, price, in_stock FROM products"
-        params = []
-        index = 1
-
-        for key, value in filters.items():
-            if key == "category":
-                query += f" WHERE category LIKE ${index}"
-                params.append(f"%{value}%")
-                index += 1
-            elif key == "sortby":
-                allowed_sort_fields = {"name", "price", "in_stock"}
-                if value in allowed_sort_fields:
-                    query += f" ORDER BY {value}"
-                else:
-                    query += " ORDER BY id"
-
-        query += f" OFFSET ${index} LIMIT ${index + 1}"
-        params.extend([skip, limit])
+    async def get_products(self, skip: int = 0, limit: int = 10) -> dict:
+        query = """
+                SELECT id, name, description, price, in_stock
+                FROM products
+                ORDER BY id
+                OFFSET $1 LIMIT $2 \
+                """
 
         async with self._pool.acquire() as connection:
             try:
-                records = await connection.fetch(query, *params)
-
+                records = await connection.fetch(query, skip, limit)
+                products = [dict(record) for record in records]
                 if records:
-                    return{"status": True, "message": "Produtos retornados com sucesso", "data": [{**row} for row in records]}
+                    return {"status": True, "message": "Produtos retornados com sucesso", "data": products}
                 else:
-                    return {"status": True, "message": "Nenhum produto registrado", "data": list()}
+                    return {"status": False, "message": "Nenhum produto encontrado", "data": []}
             except Exception as e:
                 logger.exception(e)
-                return{"status": False, "message": "Erro interno do servidor", "data": list()}
+                return {"status": False, "message": "Erro interno do servidor", "data": dict()}
+
+    async def get_products_by_category(self, category:str, skip: int = 0, limit: int = 10) -> dict:
+        query= """
+                SELECT id, name, description, price, in_stock
+                FROM products
+                WHERE category = $1
+                ORDER BY id
+                OFFSET $2 LIMIT $3 \
+                """
+
+        async with self._pool.acquire() as connection:
+            try:
+                records = await connection.fetch(query, category, skip, limit)
+                products = [dict(record) for record in records]
+                if records:
+                    return {"status": True, "message": "Produtos retornados com sucesso", "data": products}
+                else:
+                    return {"status": False, "message": "Nenhum produto encontrado", "data": []}
+            except Exception as e:
+                logger.exception(e)
+                return {"status": False, "message": "Erro interno do servidor", "data": dict()}
 
     async def update_product(self, product_id: int, product: ProductCreate) -> dict:
 

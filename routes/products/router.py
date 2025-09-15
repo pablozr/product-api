@@ -37,23 +37,27 @@ async def get_product_endpoint(product_id: int):
         return JSONResponse(status_code=500, content={"message": "Erro interno com o servidor."})
 
 @router.get("/products")
-async def get_products_endpoint(category: Optional[str] = None, sortby: Optional[str] = None, skip: int = 0, limit: int = 10):
-    filters = {
-        "category": category,
-        "sortby": sortby
-    }
+async def get_products_endpoint(skip: int = 0, limit: int = 10, category: Optional[str] = None):
+    if category:
+        try:
+            response_get_products_by_category = await db_instance.get_products_by_category(category=category, skip=skip, limit=limit)
 
-    filters = {key: value for key, value in filters.items() if value is not None}
+            if not response_get_products_by_category["status"]:
+                raise HTTPException(status_code=404, detail=response_get_products_by_category["message"])
+            return JSONResponse(status_code=200, content={"message": response_get_products_by_category["message"],"data": response_get_products_by_category["data"]})
+        except Exception as e:
+            logger.logger.error(e)
+            return JSONResponse(status_code=500, content={"message": "Erro interno com o servidor."})
+    else:
+        try:
+            response_get_products = await db_instance.get_products(skip=skip, limit=limit)
 
-    try:
-        response_get_products = await db_instance.get_products(skip=skip, limit=limit, filters=filters)
-
-        if not response_get_products["status"]:
-            raise HTTPException(status_code=404, detail=response_get_products["message"])
-        return JSONResponse(status_code=200, content={"message": response_get_products["message"],"data": response_get_products["data"]})
-    except Exception as e:
-        logger.logger.error(e)
-        return JSONResponse(status_code=500, content={"message": "Erro interno com o servidor."})
+            if not response_get_products["status"]:
+                raise HTTPException(status_code=404, detail=response_get_products["message"])
+            return JSONResponse(status_code=200, content={"message": response_get_products["message"],"data": response_get_products["data"]})
+        except Exception as e:
+            logger.logger.error(e)
+            return JSONResponse(status_code=500, content={"message": "Erro interno com o servidor."})
 
 @router.put("/products/{product_id}")
 async def update_product_endpoint(product_id: int, product: ProductCreate):
