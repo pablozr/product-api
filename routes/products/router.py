@@ -1,13 +1,10 @@
 from typing import Optional
-
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 from functions.database.database_manager import db_instance
 from entities.product.product import Product, ProductCreate
 from logger import logger
-
 router = APIRouter()
-
 @router.post("/products")
 async def create_product_endpoint(product: ProductCreate):
     try:
@@ -36,6 +33,7 @@ async def get_product_endpoint(product_id: int):
         logger.logger.error(e)
         return JSONResponse(status_code=500, content={"message": "Erro interno com o servidor."})
 
+
 @router.get("/products")
 async def get_products_endpoint(skip: int = 0, limit: int = 10, category: Optional[str] = None):
     if category:
@@ -59,6 +57,7 @@ async def get_products_endpoint(skip: int = 0, limit: int = 10, category: Option
             logger.logger.error(e)
             return JSONResponse(status_code=500, content={"message": "Erro interno com o servidor."})
 
+
 @router.put("/products/{product_id}")
 async def update_product_endpoint(product_id: int, product: ProductCreate):
     try:
@@ -72,6 +71,7 @@ async def update_product_endpoint(product_id: int, product: ProductCreate):
     except Exception as e:
         logger.logger.error(e)
         return JSONResponse(status_code=500, content={"message": "Erro interno com o servidor."})
+
 
 @router.delete("/products/{product_id}")
 async def delete_product_endpoint(product_id: int):
