@@ -6,6 +6,7 @@ class ProductBase(BaseModel):
     description: str
     price: float
     in_stock: bool
+    category: str
 
 
 class ProductCreate(ProductBase):
